@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from smooth import smooth_time_series
 
 def crossMat(a):
     """
@@ -469,7 +470,7 @@ if __name__ == '__main__':
     totalTime = 1000 # second
     
     # Time step
-    dt = 0.1 # second
+    dt = 0.2 # second
     nv = 19 # number of nodes/vertices
 
     # Rod length
@@ -496,21 +497,53 @@ if __name__ == '__main__':
     Nsteps = round( totalTime / dt )    
     
     ctime = 0 # Current time
-    control_input = np.array([RodLength, 0.0, 0.0])
+    mpc_result = np.load("result2.npz")
+    mpc_result = mpc_result['u']
+    for i in range(3):
+        mpc_result[:,i] = smooth_time_series(mpc_result[:,i],111)
+    control_input = mpc_result
+    achieved_trajectory = np.zeros((Nsteps, 2))
+    achieved_trajectory[0] = get_middle_node_xy(nv, q0)
+    
+    simulate_beam(u0, q0,[1.0,0,0],dt,nv,RodLength, draw_figure=True) #draw initial graph
+    
     for timeStep in range(1,Nsteps):
-      #control_input[2] = 45.0/180.0*np.pi/Nsteps*timeStep
-      #control_input[0] -= 0.1/Nsteps
-      #control_input[1] -= 0.1/Nsteps
-      #print(control_input)
-      if timeStep%100==0:
-        q_new, u_new = simulate_beam(u0, q0,control_input,dt,nv,RodLength, draw_figure=True)
+      if timeStep%1000==0 or timeStep == Nsteps-1:
+        q_new, u_new = simulate_beam(u0, q0,control_input[timeStep],dt,nv,RodLength, draw_figure=True)
       else:
-        q_new, u_new = simulate_beam(u0, q0,control_input,dt,nv,RodLength, draw_figure=False)      
+        q_new, u_new = simulate_beam(u0, q0,control_input[timeStep],dt,nv,RodLength, draw_figure=False)      
 
       ctime += dt # Update current time
 
       q0 = q_new.copy() # New position becomes old position
       u0 = u_new.copy() # New velocity becomes old velocity
+      
+      achieved_trajectory[timeStep, :] = get_middle_node_xy(nv,q_new)
 
-     
+    # --- Generate Desired Trajectory ---
+    t = np.linspace(0, totalTime, Nsteps)
+    x_d = RodLength/2 * np.cos(np.pi/2*t/totalTime)
+    y_d = -RodLength/2 * np.sin(np.pi/2*t/totalTime)
+    desired_trajectory = np.stack([x_d, y_d], axis=1)
+
+    # --- Plotting ---
+    plt.figure(figsize=(12, 6))
+
+    plt.subplot(1, 2, 1)
+    plt.plot(desired_trajectory[:, 0], desired_trajectory[:, 1], 'bo-', label='Desired Trajectory', markevery=100)
+    plt.plot(achieved_trajectory[:, 0], achieved_trajectory[:, 1], 'rx--', label='Achieved (MPC)', markevery=100)
+    plt.title("Output Trajectory [x, y]")
+    plt.xlabel("X"); plt.ylabel("Y")
+    plt.legend(); plt.axis('equal'); plt.grid(True)
+
+    plt.subplot(1, 2, 2)
+    plt.plot(t, control_input[:, 0], 'b-', label='Found $x_c$ (MPC)')
+    plt.plot(t, control_input[:, 1], 'g-', label='Found $y_c$ (MPC)')
+    plt.plot(t, control_input[:, 2], 'r-', label=r'Found $\theta_c$ (MPC)')
+    plt.title("Input Trajectories")
+    plt.xlabel("Time(s)"); plt.ylabel("Value")
+    plt.legend(); plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
         

@@ -34,10 +34,10 @@ def mpc_objective_stateful(control_input_horizon_flat, desired_window, current_q
 
 if __name__ == '__main__':
     # Total time
-    totalTime = 100 # second
+    totalTime = 1000 # second
     
     # Time step
-    dt = 0.1 # second
+    dt = 0.2 # second
     nv = 19 # number of nodes/vertices
 
     # Rod length
@@ -77,12 +77,11 @@ if __name__ == '__main__':
     # MPC Parameters
     prediction_horizon = 10
     lambda_vel = 0.01
-    lambda_accel = 0.01
+    lambda_accel = 0.02
 
-    # --- DEFINE BOUNDS FOR YOUR INPUTS ---
     # Define the (min, max) range for each variable. 
-    xc_bounds = (0, 1.5)         
-    yc_bounds = (-1, 1) 
+    xc_bounds = (0.2, 1.1)         
+    yc_bounds = (-0.8, 0.1) 
     theta_bounds = (-np.pi/2, np.pi/2)         
 
     # Arrays to store results
@@ -111,8 +110,7 @@ if __name__ == '__main__':
         desired_window = desired_trajectory[k : k + h_k]
         initial_guess_horizon = np.tile(control_input_prev1, h_k)
         
-        # --- 2. CONSTRUCT BOUNDS FOR THE HORIZON ---
-        # The bounds list must match the length of the flattened optimization variable.
+        # --- 2. CONSTRUCT BOUNDS ---
         horizon_bounds = []
         for _ in range(h_k):
             horizon_bounds.append(xc_bounds)
@@ -125,7 +123,7 @@ if __name__ == '__main__':
             x0=initial_guess_horizon,
             args=(desired_window, current_q, current_u, control_input_prev1, control_input_prev2, lambda_vel, lambda_accel, dt, nv, RodLength),
             method='L-BFGS-B',
-            bounds=horizon_bounds, # <-- Pass the bounds here
+            bounds=horizon_bounds,
             options={'maxiter': 2000, 'ftol': 1e-7}
         )
         
@@ -142,26 +140,4 @@ if __name__ == '__main__':
         
     end_time = time.time()
     print(f"\nMPC finished in {end_time - start_time:.2f} seconds.")
-
-    # --- Plotting (no changes) ---
-    plt.figure(figsize=(12, 6))
-    # ... (plotting code is identical to the previous version)
-    plt.subplot(1, 2, 1)
-    plt.plot(desired_trajectory[:, 0], desired_trajectory[:, 1], 'bo-', label='Desired Trajectory')
-    plt.plot(achieved_trajectory[:, 0], achieved_trajectory[:, 1], 'rx--', label='Achieved (MPC)')
-    plt.plot(achieved_trajectory[0, 0], achieved_trajectory[0, 1], 'g*', markersize=15, label='Exact Start')
-    plt.title("Output Trajectory [x, y]")
-    plt.xlabel("X"); plt.ylabel("Y")
-    plt.legend(); plt.axis('equal'); plt.grid(True)
-    plt.subplot(1, 2, 2)
-    plt.plot(t, U_true[:, 0], 'b-', alpha=0.3, label='True $a$')
-    plt.plot(t, U_mpc_solution[:, 0], 'b-', label='Found $a$ (MPC)')
-    plt.plot(t, U_true[:, 1], 'g-', alpha=0.3, label='True $b$')
-    plt.plot(t, U_mpc_solution[:, 1], 'g-', label='Found $b$ (MPC)')
-    plt.plot(t, U_true[:, 2], 'r-', alpha=0.3, label='True $c$')
-    plt.plot(t, U_mpc_solution[:, 2], 'r-', label='Found $c$ (MPC)')
-    plt.title("Input Trajectories [a, b, c]")
-    plt.xlabel("Time Step (k)"); plt.ylabel("Value")
-    plt.legend(); plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    np.savez('result2.npz', u=control_input_mpc_solution)
