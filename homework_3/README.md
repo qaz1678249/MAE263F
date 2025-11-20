@@ -4,7 +4,7 @@
 
 Run python Homework3.py to run the MPC and get MPC result(control inputs).
 
-singlestepsim.py The code to run a single step simulation. Also plot the graphs given the MPC result.
+singlestepsim.py This script includes a single step simulation function. Also the main function plot the graphs given the MPC result.
 
 smooth.py The code to use average smooth to filter the MPC result.
 
